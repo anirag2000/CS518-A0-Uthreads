@@ -18,21 +18,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-typedef uint mypthread_t;
 
-	/* add important states in a thread control block */
-typedef struct threadControlBlock
-{
-	// YOUR CODE HERE	
-	
-	// thread Id
-	// thread status
-	// thread context
-	// thread stack
-	// thread priority
-	// And more ...
 
-} tcb;
+
 
 /* mutex struct definition */
 typedef struct mypthread_mutex_t

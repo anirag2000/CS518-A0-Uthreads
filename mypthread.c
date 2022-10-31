@@ -1,153 +1,259 @@
-// File:	mypthread.c
+#include <stdio.h>
+#include <stdlib.h>
 
-// List all group members' names:
-// iLab machine tested on:
+#define STACKSIZE 15000
+#define GCERROR -1
+#define _XOPEN_SOURCE 600
+#define mutex_code long int
+#include <ucontext.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <sys/time.h>
+#include <signal.h>
+#include <ucontext.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/time.h>
+#include <unistd.h>
 
-#include "mypthread.h"
+#define NUM_LEVELS 4
 
-// INITAILIZE ALL YOUR VARIABLES HERE
-// YOUR CODE HERE
+static long int thr_id = 0;
+typedef struct{
+
+} mypthread_attr_t;
+
+typedef enum state {
+	NEW,
+	READY,
+	RUNNING,
+	WAITING,
+	TERMINATED,
+	YIELD
+}state;
+
+// mythread object
+typedef struct mypthread_t {
+	ucontext_t ucp;
+	struct mypthread_t *next_thr;
+	state thr_state;
+	long thr_id;
+	int num_runs;
+	int time_runs;
+	int priority;
+	void * retval;
+	long start_tt;
+	long first_exe_tt;
+	long last_exe_tt;
+	long end_tt;
+}mypthread_t;
+
+typedef struct {
+
+	mypthread_t *head;
+	mypthread_t *tail;
+	long int size;
+
+}Queue_ds;
+
+// pthread_mutex object
+typedef struct my_pthread_mutex_t {
+	volatile int guard;
+	volatile int flag;
+	Queue_ds *wait;
+	mypthread_t owner;
+}my_pthread_mutex_t;
 
 
-/* create a new thread */
-int mypthread_create(mypthread_t * thread, pthread_attr_t * attr, void *(*function)(void*), void * arg)
+void *print_message_function( void *ptr );
+int my_pthread_create(mypthread_t *thread, mypthread_attr_t *attr, void *(*function)(void *), void *arg);
+void run_thread(mypthread_t * thr_node, void *(*f)(void *), void * arg);
+
+
+
+
+
+
+int main()
 {
-	   // YOUR CODE HERE	
-	
-	   // create a Thread Control Block
-	   // create and initialize the context of this thread
-	   // allocate heap space for this thread's stack
-	   // after everything is all set, push this thread into the ready queue
+     mypthread_t thread1, thread2;
+     char *message1 = "Thread 1";
+     char *message2 = "Thread 2";
+     int  iret1, iret2;
 
+    /* Create independent threads each of which will execute function */
 
-	return 0;
-};
+     iret1 = my_pthread_create( &thread1, NULL, print_message_function, (void*) message1);
+     iret2 = my_pthread_create( &thread2, NULL, print_message_function, (void*) message2);
+     /* Wait till threads are complete before main continues. Unless we  */
+     /* wait we run the risk of executing an exit which will terminate   */
+     /* the process and all threads before the threads have completed.   */
 
-/* current thread voluntarily surrenders its remaining runtime for other threads to use */
-int mypthread_yield()
-{
-	// YOUR CODE HERE
-	
-	// change current thread's state from Running to Ready
-	// save context of this thread to its thread control block
-	// switch from this thread's context to the scheduler's context
+   //  pthread_join( thread1, NULL);
+   //  pthread_join( thread2, NULL); 
 
-	return 0;
-};
-
-/* terminate a thread */
-void mypthread_exit(void *value_ptr)
-{
-	// YOUR CODE HERE
-
-	// preserve the return value pointer if not NULL
-	// deallocate any dynamic memory allocated when starting this thread
-	
-	return;
-};
-
-
-/* Wait for thread termination */
-int mypthread_join(mypthread_t thread, void **value_ptr)
-{
-	// YOUR CODE HERE
-
-	// wait for a specific thread to terminate
-	// deallocate any dynamic memory created by the joining thread
-
-	return 0;
-};
-
-/* initialize the mutex lock */
-int mypthread_mutex_init(mypthread_mutex_t *mutex, const pthread_mutexattr_t *mutexattr)
-{
-	// YOUR CODE HERE
-	
-	//initialize data structures for this mutex
-
-	return 0;
-};
-
-/* aquire a mutex lock */
-int mypthread_mutex_lock(mypthread_mutex_t *mutex)
-{
-		// YOUR CODE HERE
-	
-		// use the built-in test-and-set atomic function to test the mutex
-		// if the mutex is acquired successfully, return
-		// if acquiring mutex fails, put the current thread on the blocked/waiting list and context switch to the scheduler thread
-		
-		return 0;
-};
-
-/* release the mutex lock */
-int mypthread_mutex_unlock(mypthread_mutex_t *mutex)
-{
-	// YOUR CODE HERE	
-	
-	// update the mutex's metadata to indicate it is unlocked
-	// put the thread at the front of this mutex's blocked/waiting queue in to the run queue
-
-	return 0;
-};
-
-
-/* destroy the mutex */
-int mypthread_mutex_destroy(mypthread_mutex_t *mutex)
-{
-	// YOUR CODE HERE
-	
-	// deallocate dynamic memory allocated during mypthread_mutex_init
-
-	return 0;
-};
-
-/* scheduler */
-static void schedule()
-{
-	// YOUR CODE HERE
-	
-	// each time a timer signal occurs your library should switch in to this context
-	
-	// be sure to check the SCHED definition to determine which scheduling algorithm you should run
-	//   i.e. RR, PSJF or MLFQ
-
-	return;
+     printf("Thread 1 returns: %d\n",iret1);
+     printf("Thread 2 returns: %d\n",iret2);
+     return 0;
 }
 
-/* Round Robin scheduling algorithm */
-static void sched_RR()
+void *print_message_function( void *ptr )
 {
-	// YOUR CODE HERE
-	
-	// Your own implementation of RR
-	// (feel free to modify arguments and return types)
-	
-	return;
+     char *message;
+     message = (char *) ptr;
+     printf("%s \n", message);
 }
 
-/* Preemptive PSJF (STCF) scheduling algorithm */
-static void sched_PSJF()
+int my_pthread_create(mypthread_t *thread, mypthread_attr_t *attr, void *(*function)(void *), void *arg)
 {
-	// YOUR CODE HERE
+    if (getcontext(&(thread->ucp)) != 0)
+    {
+        printf("Get_Context error, please check ucp");
+        return GCERROR;
+    }
 
-	// Your own implementation of PSJF (STCF)
-	// (feel free to modify arguments and return types)
-
-	return;
+    thread->ucp.uc_stack.ss_sp = malloc(STACKSIZE);
+    thread->ucp.uc_stack.ss_size = STACKSIZE;
+    thread->thr_id = thr_id++;
+ //   thread->start_tt = timeStamp();
+    thread->first_exe_tt = 0;
+ //   makecontext(&(thread->ucp), (void *)runThread, 3, thread, function, arg);
+  //  schedAddThread(thread, 0);
+    printf("Thread %ld successfully created\n", thr_id);
+    return 0;
 }
 
-/* Preemptive MLFQ scheduling algorithm */
-/* Graduate Students Only */
-static void sched_MLFQ() {
-	// YOUR CODE HERE
-	
-	// Your own implementation of MLFQ
-	// (feel free to modify arguments and return types)
 
-	return;
+
+
+
+
+
+
+
+
+
+
+
+//**************************************
+// HElper Functions 
+//***************************************
+void Initialize_Queue(Queue_ds *Current_Queue)
+{
+    Current_Queue->tail = NULL;
+    Current_Queue->size = 0;
+    Current_Queue->head = NULL;
 }
 
-// Feel free to add any other functions you need
+mypthread_t *peek_Queue(Queue_ds *Current_Queue)
+{
+    return Current_Queue->head;
+}
 
-// YOUR CODE HERE
+bool isEmpty_Queue(Queue_ds *Current_Queue)
+{
+    return Current_Queue->size == 0;
+}
+
+void insert_queue(Queue_ds *Current_Queue, mypthread_t *thr_node)
+{
+    if (Current_Queue->size == 0)
+    {
+        Current_Queue->head = thr_node;
+        Current_Queue->tail = thr_node;
+        Current_Queue->size++;
+    }
+    else
+    {
+        Current_Queue->tail->next_thr = thr_node;
+        Current_Queue->tail = thr_node;
+        Current_Queue->size++;
+    }
+}
+mypthread_t *remove_Queue(Queue_ds *Current_Queue)
+{
+    if (Current_Queue->size == 0)
+    {
+        printf("Cant Remove");
+        return NULL;
+    }
+    mypthread_t *tmp;
+    if (Current_Queue->size == 1)
+    {
+        tmp = Current_Queue->head;
+        Current_Queue->head = NULL;
+        Current_Queue->tail = NULL;
+    }
+    else
+    {
+        tmp = Current_Queue->head;
+        Current_Queue->head = Current_Queue->head->next_thr;
+    }
+    tmp->next_thr = NULL;
+    Current_Queue->size--;
+    return tmp;
+}
+
+
+
+
+///**************************************************************
+///MUTEX FUNCTIONS
+//****************************************************************
+mutex_code my_pthread_mutex_init(my_pthread_mutex_t *mutex){
+	if (mutex==NULL)
+	{
+		return EINVAL;
+	}
+	mutex->flag=0;
+	return 0;
+}
+
+mutex_code my_pthread_mutex_lock(my_pthread_mutex_t *mutex){
+	if (mutex==NULL)
+	{
+		return EINVAL;
+	}
+	while(__sync_lock_test_and_set(&(mutex->flag), 1))
+	// my_pthread_yield();
+	return 0;
+}
+
+mutex_code my_pthread_mutex_unlock(my_pthread_mutex_t *mutex){
+	if (mutex==NULL)
+	{
+		return EINVAL;
+	}
+	__sync_synchronize();
+	mutex->flag=0;
+	return 0;
+}
+
+mutex_code my_pthread_mutex_destroy(my_pthread_mutex_t *mutex){
+	// if (mutex->flag==1)
+	// {
+	// 	return EBUSY;
+	// }
+
+	switch(mutex-> flag)
+	{
+		case 1:
+		return EBUSY;
+		break;
+	}
+	// if (mutex->flag==0)
+	// {
+	// 	free(mutex);
+	// 	mutex=NULL;
+	// }
+
+	switch(mutex-> flag)
+	{
+		case 0:
+		free(mutex);
+		mutex=NULL;
+	}
+	return 0;
+}
+
+
